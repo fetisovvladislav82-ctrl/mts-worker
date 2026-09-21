@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-    // 1. ЯВНО ОТВЕЧАЕМ НА OPTIONS (PREFLIGHT) ЗАПРОСЫ
+    // 1. Отвечаем на preflight OPTIONS запросы
     if (req.method === 'OPTIONS') {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -7,7 +7,7 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
-    // 2. Разрешаем только GET запросы для скачивания
+    // 2. Разрешаем только GET запросы
     if (req.method !== 'GET') {
         return res.status(405).send('Method Not Allowed');
     }
@@ -20,13 +20,19 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Удаляем заголовки, которые могут вызвать блокировку на стороне ONLYOFFICE
-        const headers = { ...req.headers };
-        delete headers['origin'];
-        delete headers['referer'];
-        delete headers['host'];
+        // Извлекаем домен из целевого URL
+        const targetUrlObj = new URL(targetUrl);
+        
+        // Формируем правильные заголовки для ONLYOFFICE
+        const headers = {
+            // Передаем API ключ, который прислал нам фронтенд
+            'Authorization': req.headers.authorization || '',
+            // КРИТИЧЕСКИ ВАЖНО: ONLYOFFICE определяет портал именно по этому заголовку
+            'Host': targetUrlObj.host,
+            'User-Agent': 'Vercel-Proxy/1.0'
+        };
 
-        // Делаем запрос к ONLYOFFICE от имени сервера Vercel
+        // Делаем запрос к ONLYOFFICE
         const response = await fetch(targetUrl, {
             method: 'GET',
             headers: headers
